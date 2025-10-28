@@ -15,6 +15,9 @@ COPY ./migrations ./migrations
 COPY ./static ./static
 COPY ./schedule.py ./schedule.py
 
+RUN mkdir ./downloads
+RUN mkdir ./config
+
 # add a cron file to run schedule.py daily at midnight and log output
 # format: minute hour day month weekday user command
 RUN echo "0 0 * * * root /usr/local/bin/python /app/schedule.py >> /var/log/schedule.log 2>&1" > /etc/cron.d/podpulse_schedule \

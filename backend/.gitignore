@@ -22,5 +22,5 @@ venv/
 .vscode/
 
 # Config files
-downloads/
+*.mp3
 podpulse.db

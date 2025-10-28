@@ -97,7 +97,7 @@ def update_rss_items(engine,  repo: Repository):
 
 def run(limit: Optional[int] = None, dry_run: bool = False) -> int:
     base = Path(__file__).resolve().parent
-    engine = init_engine(base / "podpulse.db")
+    engine = init_engine(base / "config" / "podpulse.db")
     repo = Repository(engine)
     update_rss_items(engine, repo)
 

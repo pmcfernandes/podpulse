@@ -7,7 +7,7 @@ LOG = logging.getLogger(__name__)
 
 def get_db_path(base: Path | None = None) -> Path:
     base = base or Path(__file__).resolve().parents[1]
-    return base / "podpulse.db"
+    return base / "config" / "podpulse.db"
 
 
 def init_engine(sqlite_path: Path | str | None = None):
@@ -70,7 +70,7 @@ def apply_migration_if_needed(engine, migration_file: Path):
 def init_db_and_engine(base_path: Path | None = None):
     base = Path(__file__).resolve().parents[1] if base_path is None else Path(base_path)
     migration_file = base / "migrations" / "001_initial.sql"
-    engine = init_engine(base / "podpulse.db")
+    engine = init_engine(base / "config" / "podpulse.db")
     # create SQLModel metadata tables if they don't exist
     SQLModel.metadata.create_all(engine)
     # apply migration idempotently

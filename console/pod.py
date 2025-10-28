@@ -194,8 +194,12 @@ def listPodcasts(conn):
     table.add_column("Genre")
 
     for row in rows:
+        podcast_id = int(row[0])
+        podcast_title = str(row[1])
+        podcast_artist = str(row[2])
+        podcast_genre = str(row[3])
         inserted_date = datetime.utcfromtimestamp(int(row[4])).strftime('%Y-%m-%d')
-        table.add_row(str(row[0]), inserted_date, str(row[1]), str(row[2]), str(row[3]))
+        table.add_row(str(podcast_id), inserted_date, podcast_title, podcast_artist, podcast_genre)
 
     console.print(table)
     pass
@@ -242,7 +246,8 @@ def fetchAllItems(conn):
     """)
 
     for row in rows:
-        fetchPodcastItems(conn, str(row[0]))
+        podcast_id = int(row[0])
+        fetchPodcastItems(conn, str(podcast_id))
 
     pass
 
@@ -254,14 +259,19 @@ def fetchPodcastItems(conn, podcastId):
     """, (podcastId,))
 
     for row in rows:
-        rss_url = row[2]
+        podcast_id = int(row[0])
+        podcast_title = str(row[1])
+        rss_url = str(row[2])
+        podcast_artist = str(row[3])
+        podcast_genre = str(row[4])
+        podcast_image_url = str(row[5])
         feed = feedparser.parse(rss_url)
 
         for entry in feed.entries:
             if not itemIsFetched(conn, entry.guid):
-                author = str(row[3]) if not hasattr(entry, "author") else entry.author
-                tags = str(row[4]) if not hasattr(entry, 'tags') else getCategories(entry.tags)
-                image = str(row[5]) if not hasattr(entry, 'image') else entry.image.href
+                author = podcast_artist if not hasattr(entry, "author") else entry.author
+                tags = podcast_genre if not hasattr(entry, 'tags') else getCategories(entry.tags)
+                image = podcast_image_url if not hasattr(entry, 'image') else entry.image.href
                 media_url = "" if len(entry.enclosures) == 0 else entry.enclosures[0].href
                 published_date = entry.published_parsed
                 _time = datetime(published_date.tm_year, published_date.tm_mon, published_date.tm_mday).timestamp()
@@ -272,7 +282,7 @@ def fetchPodcastItems(conn, podcastId):
                 """, (podcastId, _time * 1000, entry.guid, entry.title, entry.description, tags, author, media_url, image, _time))
 
                 console.print("[green]Founded:[/green] Podcast '{podcast}' have a new episode '{episode}'.".format(
-                    episode=entry.title, podcast=str(row[1])))
+                    episode=entry.title, podcast=podcast_title))
 
     try:
         conn.commit()
@@ -324,52 +334,68 @@ def downloadPodcasts(conn, id):
     """.format(id=id))
 
     for row in rows:
-        createPoster(str(row[8]), str(row[2]))
+        # map columns for readability (matches SELECT order above):
+        # 0: podcasts.title
+        # 1: podcasts.artist
+        # 2: podcasts.image_url,
+        # 3: podcasts_items.guid
+        # 4: podcasts_items.title
+        # 5: podcasts_items.media_url,
+        # 6: podcasts_items.image_url
+        # 7: podcasts_items.publish_date
+        # 8: podcasts.id,
+        # 9: podcasts_items.track_id
+        podcast_title = str(row[0])
+        podcast_artist = str(row[1])
+        podcast_image_url = str(row[2])
+        guid = str(row[3])
+        title = str(row[4])
+        media_url = str(row[5])
+        episode_image_url = str(row[6])
+        publish_ts = int(float(row[7]))
+        podcast_id = int(row[8])
+        track_id = int(row[9])
+
+        createPoster(podcast_id, podcast_image_url)
 
         try:
-          date = datetime.fromtimestamp(int(row[7])).strftime("%Y-%m-%d")
-          podcast_id = int(row[8])
-          track_id = int(row[9])
-          title = str(row[4])
-          image_url = str(row[6])
-          media_url = str(row[5])
+            date = datetime.fromtimestamp(publish_ts).strftime("%Y-%m-%d")
 
-          if len(media_url) == 0:
-              continue
+            if not media_url:
+                continue
 
-          # Derive a filename: <podcastid>-<trackid>-<safe_title>.<ext>
-          ext = Path(media_url.split("?")[0]).suffix or ".mp3"
-          title_part = safe_filename(title or f"track-{track_id}")
-          fname = f"pod{podcast_id}-trk{track_id}-{title_part}{ext}"
-          dest = downloads_dir / fname
+            # Derive a filename: <podcastid>-<trackid>-<safe_title>.<ext>
+            ext = Path(media_url.split("?")[0]).suffix or ".mp3"
+            title_part = safe_filename(title or f"track-{track_id}")
+            fname = f"pod{podcast_id}-trk{track_id}-{title_part}{ext}"
+            dest = downloads_dir / fname
 
-          if not os.path.exists(dest):
-              with httpx.Client() as client:
-                  download_one(client, media_url, dest)
+            if not dest.exists():
+                with httpx.Client() as client:
+                    download_one(client, media_url, dest)
 
-              try:
+                try:
+                    audiofile = eyed3.load(dest)
 
-                audiofile = eyed3.load(dest)
+                    if audiofile is not None:
+                        audiofile.initTag()
+                        audiofile.tag.clear()
 
-                if audiofile is not None:
-                    audiofile.initTag()
-                    audiofile.tag.clear()
+                        audiofile.tag.artist = podcast_artist
+                        audiofile.tag.album = podcast_title
+                        audiofile.tag.title = title
+                        audiofile.tag.release_date = date
 
-                    audiofile.tag.artist = str(row[1])
-                    audiofile.tag.album = str(row[0])
-                    audiofile.tag.title = str(row[4])
-                    audiofile.tag.release_date = date
+                        episodeImage = downloadPodcastEpisodeImage(episode_image_url)
+                        if episodeImage is not None:
+                            audiofile.tag.images.set(3, episodeImage, "image/jpeg", u"cover")
+                        audiofile.tag.save()
 
-                    episodeImage = downloadPodcastEpisodeImage(image_url)
-                    if episodeImage is not None:
-                        audiofile.tag.images.set(3, episodeImage, "image/jpeg", u"cover")
-                    audiofile.tag.save()
+                    updateDownloadedState(conn, guid, fname)
+                    console.print(f"[green]Success:[/green] {fname} file downloaded.")
 
-                updateDownloadedState(conn, str(row[3]), fname)
-                console.print(f"[green]Success:[/green] {fname} file downloaded.")
-
-              except:
-                pass
+                except:
+                    pass
 
         except:
             pass
@@ -391,7 +417,7 @@ def updateDownloadedState(conn, guid: str, filename: str):
 
     pass
 
-def createPoster(podcast_id, image_url):
+def createPoster(podcast_id: int, image_url):
     base = Path(__file__).resolve().parent
     folderName = base / "downloads"
 
