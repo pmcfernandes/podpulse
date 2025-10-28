@@ -99,8 +99,11 @@ function App() {
     <div className="min-h-screen">
       <header className="bg-white shadow-sm py-4">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
-            <a href="#/" aria-label="Home" className="text-inherit no-underline hover:underline">PodPulse</a>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <a href="#/" aria-label="Home" className="text-inherit no-underline hover:underline flex items-center gap-2">
+              <img src="/static/electrocardiogram.png" alt="logo" className="w-6 h-6 inline-block" />
+              <span>PodPulse</span>
+            </a>
           </h1>
           <div className="flex items-center gap-3">
             <button className="px-3 py-1 border rounded text-sm" onClick={() => (window.location.hash = '#/favorites')}>Favorites</button>

@@ -42,6 +42,7 @@ export default function PodcastSearch() {
             artworkUrl60: p.image_url || null,
             feedUrl: p.rss_url || null,
             totalEpisodes: p.trackCount || 0,
+            suspended: p.suspended || 0,
             addedAt: p.date * 1000 || undefined,
           }))
           if (!cancelled) setSaved(mapped)
@@ -152,6 +153,7 @@ export default function PodcastSearch() {
         artworkUrl60: created.image_url || null,
         feedUrl: created.rss_url || null,
         totalEpisodes: created.trackCount || 0,
+        suspended: created.suspended || 0,
         addedAt: created.date * 1000 || undefined,
       }
 
@@ -166,6 +168,19 @@ export default function PodcastSearch() {
 
   function isSaved(collectionId) {
     return saved.some((p) => p.collectionId === collectionId)
+  }
+
+  // parent handlers to update saved list when child reports suspend/resume
+  function handleSuspend(podcast) {
+    if (!podcast || !podcast.podcastId) return
+    const id = podcast.podcastId
+    setSaved((prev) => prev.map((p) => (p.podcastId === id ? { ...p, suspended: 1 } : p)))
+  }
+
+  function handleResume(podcast) {
+    if (!podcast || !podcast.podcastId) return
+    const id = podcast.podcastId
+    setSaved((prev) => prev.map((p) => (p.podcastId === id ? { ...p, suspended: 0 } : p)))
   }
 
   return (
@@ -217,7 +232,7 @@ export default function PodcastSearch() {
           ))}
         </ul>
 
-        <SavedPodcasts saved={saved} onToggle={toggleSave} />
+        <SavedPodcasts saved={saved} onToggle={toggleSave} onSuspend={handleSuspend} onResume={handleResume} />
       </div>
     </div>
   )

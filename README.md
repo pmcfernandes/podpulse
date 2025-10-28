@@ -46,13 +46,16 @@ The frontend uses `src/lib/api.js` to pick the backend base URL in development.
 - `GET /api/podcasts` — list saved podcasts (includes `trackCount`)
 - `POST /api/podcasts` — add a podcast (RSS/lookup + items saved)
 - `GET /api/podcasts/{podcast_id}` — podcast details + episodes
+- `PATCH /api/podcasts/{podcast_id}/suspend` — suspend background downloading for the podcast (sets `suspended=1`)
+- `PATCH /api/podcasts/{podcast_id}/continue` — resume background downloading (sets `suspended=0`)
 - `GET /api/itunes/search?q=...` — proxied iTunes search
 - `GET /api/episodes/favorites` — list favorite entries; includes `items` (PodcastItem rows)
-- `POST /api/episodes/{track_id}/favorite` — add a favorite
-- `DELETE /api/episodes/{track_id}/favorite` — remove a favorite
-- `POST /api/episodes/{item_id}/watched` — mark episode(s) with that external track id as watched
-- `DELETE /api/episodes/{item_id}/watched` — unmark watched
-- `POST /api/episodes/{item_id}/download` — download a single PodcastItem to `downloads/` (matches schedule.py behavior)
+- `POST /api/episodes/{item_id}/favorite` — add a favorite (pass PodcastItem primary key id; server stores the external `track_id`)
+- `DELETE /api/episodes/{item_id}/favorite` — remove a favorite (by PodcastItem id)
+- `GET /api/episodes/watched?podcastId={podcast_id}` — returns `{ watched: [<external_track_id>, ...] }`; optional `podcastId` filters to a single podcast
+- `POST /api/episodes/{item_id}/watched` — mark a PodcastItem (by DB primary key `item_id`) as watched/listened
+- `DELETE /api/episodes/{item_id}/watched` — unmark watched for a given PodcastItem id
+- `GET /api/episodes/{item_id}/download` — download/serve a previously-downloaded media file for the PodcastItem (reads from `downloads/`)
 
 ## Developer notes
 

@@ -106,9 +106,11 @@ def run(limit: Optional[int] = None, dry_run: bool = False) -> int:
 
     updated = 0
     with Session(engine) as s:
-        stmt = select(PodcastItemModel).where((PodcastItemModel.downloaded == 0) | (PodcastItemModel.downloaded.is_(None))).order_by(desc(PodcastItemModel.id))
+        # Select undownloaded items whose podcast is not suspended using a JOIN
+        stmt = (select(PodcastItemModel).join(PodcastModel, PodcastItemModel.podcast_id == PodcastModel.id).where(((PodcastItemModel.downloaded == 0) | (PodcastItemModel.downloaded.is_(None))) & (PodcastModel.suspended == 0)).order_by(desc(PodcastItemModel.id)))
         items = s.exec(stmt).all()
         LOG.info("Found %d undownloaded items", len(items))
+
         for it in items:
             if limit is not None and updated >= limit:
                 break
@@ -130,8 +132,12 @@ def run(limit: Optional[int] = None, dry_run: bool = False) -> int:
                 continue
 
             try:
-                with httpx.Client() as client:
+                if (os.path.exists(dest) and os.path.getsize(dest) > 0):
+                  LOG.info("File %s already exists, skipping download", dest)
+                else:
+                  with httpx.Client() as client:
                     download_one(client, it.media_url, dest)
+
                 # update DB row
                 it.filename = str(dest.name)
                 it.downloaded = 1

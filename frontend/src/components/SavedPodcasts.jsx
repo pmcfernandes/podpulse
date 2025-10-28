@@ -1,9 +1,61 @@
 import React, { useMemo, useState } from 'react'
+import apiFetch from '../lib/api'
 
-export default function SavedPodcasts({ saved = [], onToggle = () => {} }) {
+export default function SavedPodcasts({ saved = [], onToggle = () => {}, onSuspend = () => {}, onResume = () => {} }) {
   const [sortBy, setSortBy] = useState('addedDate')
   const [desc, setDesc] = useState(true)
   const [viewMode, setViewMode] = useState('list')
+  const [pendingIds, setPendingIds] = useState(new Set())
+
+  function setPending(id, val) {
+    setPendingIds((prev) => {
+      const copy = new Set(prev)
+      if (val) copy.add(id)
+      else copy.delete(id)
+      return copy
+    })
+  }
+
+  async function handleSuspend(podcast) {
+    const id = podcast?.podcastId
+    if (!id) return
+    // optimistic update
+    const prev = podcast.suspended
+    try {
+      // reflect immediately
+      podcast.suspended = 1
+      setPending(id, true)
+      const res = await apiFetch(`/podcasts/${id}/suspend`, { method: 'PATCH' })
+      if (!res.ok) throw new Error(`Server ${res.status}`)
+      // notify parent
+      try { onSuspend(podcast) } catch (e) { console.error('parent onSuspend failed', e) }
+    } catch (e) {
+      podcast.suspended = prev
+      console.error('Suspend failed', e)
+      alert('Failed to suspend podcast')
+    } finally {
+      setPending(id, false)
+    }
+  }
+
+  async function handleResume(podcast) {
+    const id = podcast?.podcastId
+    if (!id) return
+    const prev = podcast.suspended
+    try {
+      podcast.suspended = 0
+      setPending(id, true)
+      const res = await apiFetch(`/podcasts/${id}/continue`, { method: 'PATCH' })
+      if (!res.ok) throw new Error(`Server ${res.status}`)
+      try { onResume(podcast) } catch (e) { console.error('parent onResume failed', e) }
+    } catch (e) {
+      podcast.suspended = prev
+      console.error('Resume failed', e)
+      alert('Failed to resume podcast')
+    } finally {
+      setPending(id, false)
+    }
+  }
 
   function parseDate(item, keys) {
     for (const k of keys) {
@@ -81,6 +133,11 @@ export default function SavedPodcasts({ saved = [], onToggle = () => {} }) {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
+                {!s.suspended ? (
+                  <button className="px-2 py-1 bg-yellow-300 text-yellow-900 rounded text-sm w-20" onClick={() => handleSuspend(s)} disabled={pendingIds.has(s.podcastId)}>Suspend</button>
+                ) : (
+                  <button className="px-2 py-1 bg-green-500 text-white rounded text-sm w-20" onClick={() => handleResume(s)} disabled={pendingIds.has(s.podcastId)}>Resume</button>
+                )}
                 <button className="px-2 py-1 bg-red-600 text-white rounded text-sm" onClick={() => onToggle(s)}>Remove</button>
               </div>
             </li>
@@ -105,6 +162,11 @@ export default function SavedPodcasts({ saved = [], onToggle = () => {} }) {
               <div className="flex items-center justify-between mt-2">
                 <div className="text-xs text-gray-600">{typeof s.totalEpisodes === 'number' ? `${s.totalEpisodes} eps` : ''}</div>
                 <div className="flex items-center gap-2">
+                  {!s.suspended ? (
+                    <button className="px-2 py-1 bg-yellow-300 text-yellow-900 rounded text-sm w-20" onClick={() => handleSuspend(s)} disabled={pendingIds.has(s.podcastId)}>Suspend</button>
+                  ) : (
+                    <button className="px-2 py-1 bg-green-500 text-white rounded text-sm w-20" onClick={() => handleResume(s)} disabled={pendingIds.has(s.podcastId)}>Resume</button>
+                  )}
                   <button className="px-2 py-1 bg-red-600 text-white rounded text-sm" onClick={() => onToggle(s)}>Remove</button>
                 </div>
               </div>

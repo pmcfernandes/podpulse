@@ -190,6 +190,15 @@ def suspend_podcast(podcast_id: int):
     return p
 
 
+@api.patch("/podcasts/{podcast_id}/continue", response_model=PodcastModel)
+def continue_podcast(podcast_id: int):
+    """Clear the suspended flag for a podcast (suspended=0). Returns the updated Podcast."""
+    p = repo.suspend_podcast(podcast_id, suspended=0)
+    if not p:
+        raise HTTPException(status_code=404, detail="Podcast not found")
+    return p
+
+
 @api.delete("/podcasts/{podcast_id}", status_code=204)
 def delete_podcast(podcast_id: int):
     """Delete a podcast and all its items and favorites."""
