@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* optional app styles */
+html, body, #root {
+  height: 100%;
+}
+
+/* Use raw color values for global body to avoid @apply resolution issues */
+body {
+  background-color: #f9fafb; /* tailwind gray-50 */
+  color: #111827; /* tailwind gray-900 */
+}
