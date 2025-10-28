@@ -47,19 +47,18 @@ The frontend uses `src/lib/api.js` to pick the backend base URL in development.
 - `POST /api/podcasts` — add a podcast (RSS/lookup + items saved)
 - `GET /api/podcasts/{podcast_id}` — podcast details + episodes
 - `GET /api/itunes/search?q=...` — proxied iTunes search
-- `GET /api/itunes/lookup?id=...` — proxied iTunes lookup
 - `GET /api/episodes/favorites` — list favorite entries; includes `items` (PodcastItem rows)
 - `POST /api/episodes/{track_id}/favorite` — add a favorite
 - `DELETE /api/episodes/{track_id}/favorite` — remove a favorite
-- `POST /api/episodes/{track_id}/watched` — mark episode(s) with that external track id as watched
-- `DELETE /api/episodes/{track_id}/watched` — unmark watched
+- `POST /api/episodes/{item_id}/watched` — mark episode(s) with that external track id as watched
+- `DELETE /api/episodes/{item_id}/watched` — unmark watched
 - `POST /api/episodes/{item_id}/download` — download a single PodcastItem to `downloads/` (matches schedule.py behavior)
 
 ## Developer notes
 
-- Database models live in `podPulseBackend/app/models.py`.
-- Use functions in `podPulseBackend/app/repository.py` for DB access (CRUD, mark downloaded, set filename).
-- See `podPulseBackend/schedule.py` for the canonical filename pattern and streaming logic used when storing downloaded media.
+- Database models live in `backend/app/models.py`.
+- Use functions in `backend/app/repository.py` for DB access (CRUD, mark downloaded, set filename).
+- See `backend/schedule.py` for the canonical filename pattern and streaming logic used when storing downloaded media.
 
 ## UX & Implementation notes
 

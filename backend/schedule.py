@@ -20,6 +20,7 @@ import argparse
 import logging
 import re
 import sys
+import os
 import httpx
 import feedparser
 import time
@@ -88,8 +89,10 @@ def update_rss_items(engine,  repo: Repository):
             filename=None,
             downloaded=0,
             watched=0,
-        )
-        repo.add_podcast_item_if_not_exists(item)
+          )
+
+          # Add the new item to the repository (inside the loop so `item` is in scope)
+          repo.add_podcast_item_if_not_exists(item)
 
 
 def run(limit: Optional[int] = None, dry_run: bool = False) -> int:

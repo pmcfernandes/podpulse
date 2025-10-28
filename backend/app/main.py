@@ -287,13 +287,24 @@ def list_favorite_episodes():
         out.append(f_dict)
     return out
 
-@api.post("/episodes/{track_id}/favorite")
-def favorite_episode(track_id: int, payload: FavoriteEpisodeIn | None = None):
-    """Mark an episode (external track id) as favorite."""
+@api.post("/episodes/{item_id}/favorite")
+def favorite_episode(item_id: int, payload: FavoriteEpisodeIn | None = None):
+    """Mark an episode (by PodcastItem id) as favorite.
+
+    The FavoriteEpisode model stores external `track_id` values, so we look up
+    the PodcastItem by its primary key, extract its `track_id` and create the
+    FavoriteEpisode entry using that value.
+    """
     note = payload.note if payload else None
 
+    item = repo.get_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Podcast item not found")
+    if item.track_id is None:
+        raise HTTPException(status_code=400, detail="Podcast item has no external track id")
+
     fav = FavoriteEpisodeModel(
-        track_id=track_id,
+        track_id=item.track_id,
         added_at=time(),
         note=note
     )
@@ -301,10 +312,20 @@ def favorite_episode(track_id: int, payload: FavoriteEpisodeIn | None = None):
     return created
 
 
-@api.delete("/episodes/{track_id}/favorite", status_code=204)
-def unfavorite_episode(track_id: int):
-    """Remove favorite mark for the given track id."""
-    ok = repo.remove_favorite_episode(track_id)
+@api.delete("/episodes/{item_id}/favorite", status_code=204)
+def unfavorite_episode(item_id: int):
+    """Remove favorite mark for the given PodcastItem id.
+
+    We resolve the PodcastItem to its external track_id and remove the
+    FavoriteEpisode that references that track id.
+    """
+    item = repo.get_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Podcast item not found")
+    if item.track_id is None:
+        raise HTTPException(status_code=404, detail="Favorite episode not found")
+
+    ok = repo.remove_favorite_episode(item.track_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Favorite episode not found")
     return None
@@ -320,29 +341,29 @@ def list_watched_episodes(podcastId: Optional[int] = Query(None, alias='podcastI
     return { 'watched': ids }
 
 
-@api.post("/episodes/{track_id}/watched")
-def mark_episode_watched(track_id: int):
-    """Mark all items with the given external track_id as watched.
+@api.post("/episodes/{item_id}/watched")
+def mark_episode_watched(item_id: int):
+    """Mark a single PodcastItem (by DB id) as watched.
 
-    Returns JSON with the number of items updated.
-    If no matching items are found, returns 404.
+    Returns JSON with the number of items updated (1). If the item isn't
+    found, returns 404.
     """
-    updated = repo.mark_item_watched_by_track(track_id)
+    updated = repo.mark_item_watched_by_id(item_id)
     if updated == 0:
-        raise HTTPException(status_code=404, detail="No episodes found for track_id")
+        raise HTTPException(status_code=404, detail="No episodes found for item_id")
     return {"updated": updated}
 
 
-@api.delete("/episodes/{track_id}/watched", status_code=204)
-def unmark_episode_watched(track_id: int):
-    """Unmark watched flag for all items matching the given external track_id."""
-    updated = repo.unmark_item_watched_by_track(track_id)
+@api.delete("/episodes/{item_id}/watched", status_code=204)
+def unmark_episode_watched(item_id: int):
+    """Unmark watched flag for a single PodcastItem (by DB id)."""
+    updated = repo.unmark_item_watched_by_id(item_id)
     if updated == 0:
-        raise HTTPException(status_code=404, detail="No episodes found for track_id")
+        raise HTTPException(status_code=404, detail="No episodes found for item_id")
     return None
 
 
-@api.post("/episodes/{item_id}/download")
+@api.get("/episodes/{item_id}/download")
 async def download_episode_item(item_id: int):
     """Download the media for a single PodcastItem identified by its DB primary key id.
     The file is read from the repository `downloads/` directory (next to the package).
@@ -355,7 +376,7 @@ async def download_episode_item(item_id: int):
 
     base = Path(__file__).resolve().parent
     downloads_dir = base.parent.joinpath('downloads')
-    dest = downloads_dir.joinpath(item.filenam)
+    dest = downloads_dir.joinpath(item.filename)
     if not dest.exists():
         raise HTTPException(status_code=404, detail="Downloaded file not found")
 

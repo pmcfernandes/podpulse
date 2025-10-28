@@ -10,8 +10,9 @@ export default function EpisodesList({ podcastId }) {
   // queue is kept in-memory (persisted server-side in future). Remove localStorage usage.
   const [queue, setQueue] = useState([])
 
-  const [downloaded, setDownloaded] = useState([])
+  const [watched, setWatched] = useState([])
   const [favorites, setFavorites] = useState([])
+  const [watchedTracks, setWatchedTracks] = useState([])
 
   // load favorites from backend
   useEffect(() => {
@@ -21,7 +22,13 @@ export default function EpisodesList({ podcastId }) {
           const res = await apiFetch('/episodes/favorites')
           if (!res.ok) return
           const data = await res.json()
-          if (!cancelled) setFavorites(data.map((f) => f.track_id || f.trackId || f.trackId))
+          if (!cancelled) {
+            const favIds = data.map((f) => {
+              if (Array.isArray(f.items) && f.items.length) return f.items[0].id
+              return null
+            }).filter(Boolean)
+            setFavorites(favIds)
+          }
         } catch {
           // ignore
         }
@@ -53,7 +60,6 @@ export default function EpisodesList({ podcastId }) {
           const releaseDate = it.releaseDate || it.publishDate || (it.publish_date ? new Date(Number(it.publish_date) * 1000).toISOString() : null)
           return {
             episodeId: it.id,
-            trackId: it.track_id,
             trackName: it.title,
             artistName: it.author || '',
             description: it.desc || '',
@@ -67,12 +73,18 @@ export default function EpisodesList({ podcastId }) {
         })
 
         setEpisodes(normalized)
+        // map watched external track ids (fetched earlier) to episode ids
+        if (watchedTracks && watchedTracks.length) {
+          const watchedSet = new Set(watchedTracks.map(String))
+          const watchedEpisodeIds = normalized.filter(e => watchedSet.has(String(e.__raw?.track_id ?? e.episodeId))).map(e => e.episodeId)
+          if (watchedEpisodeIds.length) setWatched(watchedEpisodeIds)
+        }
       })
       .catch((err) => setError(err.message || 'Failed to load episodes'))
       .finally(() => setLoading(false))
-  }, [podcastId])
+  }, [podcastId, watchedTracks])
 
-  // load watched ids from backend for this podcast
+  // load watched external track ids from backend for this podcast
   useEffect(() => {
     if (!podcastId) return
     let cancelled = false
@@ -83,7 +95,7 @@ export default function EpisodesList({ podcastId }) {
           const data = await res.json()
           if (cancelled) return
           if (data && Array.isArray(data.watched)) {
-            setDownloaded(data.watched)
+            setWatchedTracks(data.watched)
           }
         } catch {
           // ignore network errors
@@ -121,42 +133,43 @@ export default function EpisodesList({ podcastId }) {
     return favorites.includes(id)
   }
 
-  function isDownloaded(id) {
-    return downloaded.includes(id)
+  function isWatched(id) {
+    return watched.includes(id)
   }
 
   function toggleQueue(ep) {
+    const id = ep.episodeId
     setQueue((prev) => {
-      if (prev.includes(ep.trackId)) return prev.filter((id) => id !== ep.trackId)
-      return [ep.trackId, ...prev]
+      if (prev.includes(id)) return prev.filter((x) => x !== id)
+      return [id, ...prev]
     })
   }
 
   async function toggleWatched(ep) {
-    const id = ep.trackId
+    const id = ep.episodeId
     if (!id) return
-    if (isDownloaded(id)) {
-      // unmark on server
+    if (isWatched(id)) {
+      // unmark on server (by PodcastItem id)
       try {
         const res = await apiFetch(`/episodes/${id}/watched`, { method: 'DELETE' })
         if (!res.ok) {
           const text = await res.text().catch(() => '')
           throw new Error(text || `Server returned ${res.status}`)
         }
-        setDownloaded((prev) => prev.filter((tid) => tid !== id))
+        setWatched((prev) => prev.filter((tid) => tid !== id))
       } catch (err) {
         console.error('Failed to unmark listened', err)
         alert('Failed to unmark as listened')
       }
     } else {
-      // mark as listened on server
+      // mark as listened on server (by PodcastItem id)
       try {
         const res = await apiFetch(`/episodes/${id}/watched`, { method: 'POST' })
         if (!res.ok) {
           const text = await res.text().catch(() => '')
           throw new Error(text || `Server returned ${res.status}`)
         }
-        setDownloaded((prev) => (prev.includes(id) ? prev : [id, ...prev]))
+        setWatched((prev) => (prev.includes(id) ? prev : [id, ...prev]))
         setQueue((prev) => prev.filter((qid) => qid !== id))
       } catch (err) {
         console.error('Failed to mark listened', err)
@@ -166,16 +179,17 @@ export default function EpisodesList({ podcastId }) {
   }
 
   function toggleFavorite(ep) {
-    const id = ep.trackId
+    const id = ep.episodeId
+    if (!id) return
     if (favorites.includes(id)) {
-      // remove favorite on server
+      // remove favorite on server (by PodcastItem id)
       apiFetch(`/episodes/${id}/favorite`, { method: 'DELETE' }).then((res) => {
         if (res.ok) setFavorites((prev) => prev.filter((tid) => tid !== id))
       }).catch(() => {
         // ignore
       })
     } else {
-      // add favorite on server
+      // add favorite on server (by PodcastItem id)
       apiFetch(`/episodes/${id}/favorite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: null }) })
         .then((res) => res.json())
         .then(() => setFavorites((prev) => [id, ...prev]))
@@ -189,13 +203,13 @@ export default function EpisodesList({ podcastId }) {
     const url = getAudioUrl(ep)
     if (!url) return
     const meta = {
-      id: ep.trackId,
+      id: ep.episodeId,
       title: ep.trackName,
       artist: ep.artistName,
       url: ep.episodeUrl,
       duration: ep.trackTimeMillis ? Math.round(ep.trackTimeMillis / 1000) : undefined,
     }
-    play(ep.trackId, ep.episodeUrl, meta)
+    play(ep.episodeId, ep.episodeUrl, meta)
   }
 
   async function downloadEpisode(ep) {
@@ -237,7 +251,7 @@ export default function EpisodesList({ podcastId }) {
           const audioUrl = getAudioUrl(ep)
           const artwork = getArtwork(ep)
           return (
-            <li key={ep.trackId} className="border rounded p-3">
+            <li key={ep.episodeId} className="border rounded p-3">
               <div className="flex items-start gap-4">
                 {artwork ? (
                   <img src={artwork} alt={ep.trackName || 'episode artwork'} className="w-16 h-16 object-cover rounded" />
@@ -247,9 +261,9 @@ export default function EpisodesList({ podcastId }) {
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <div className="font-semibold">{ep.trackName}</div>
-                    {isDownloaded(ep.trackId) ? (
+                    {isWatched(ep.episodeId) ? (
                       <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Listened</span>
-                    ) : isQueued(ep.trackId) ? (
+                    ) : isQueued(ep.episodeId) ? (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Queued</span>
                     ) : null}
                   </div>
@@ -260,11 +274,11 @@ export default function EpisodesList({ podcastId }) {
                   <div>
                     <button
                       disabled={!audioUrl}
-                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === ep.trackId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} focus:outline-none focus:ring-2 focus:ring-blue-200`}
+                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === ep.episodeId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} focus:outline-none focus:ring-2 focus:ring-blue-200`}
                       onClick={() => playEpisode(ep)}
-                      aria-label={playingId === ep.trackId ? `Pause ${ep.trackName}` : `Play ${ep.trackName}`}
+                      aria-label={playingId === ep.episodeId ? `Pause ${ep.trackName}` : `Play ${ep.trackName}`}
                     >
-                      {playingId === ep.trackId ? (
+                      {playingId === ep.episodeId ? (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                           <rect x="6" y="5" width="4" height="14" />
                           <rect x="14" y="5" width="4" height="14" />
@@ -278,10 +292,10 @@ export default function EpisodesList({ podcastId }) {
                   </div>
                   <div>
                     <button
-                      className={`h-9 px-3 rounded text-sm flex items-center justify-center ${isQueued(ep.trackId) ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'bg-orange-500 text-white'} focus:outline-none focus:ring-2 focus:ring-orange-200`}
+                      className={`h-9 px-3 rounded text-sm flex items-center justify-center ${isQueued(ep.episodeId) ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'bg-orange-500 text-white'} focus:outline-none focus:ring-2 focus:ring-orange-200`}
                       onClick={() => toggleQueue(ep)}
                     >
-                      {isQueued(ep.trackId) ? 'Remove from queue' : 'Queue'}
+                      {isQueued(ep.episodeId) ? 'Remove from queue' : 'Queue'}
                     </button>
                   </div>
                 </div>
@@ -296,12 +310,12 @@ export default function EpisodesList({ podcastId }) {
                   Download
                 </button>
                 <button
-                  className={`w-9 h-9 flex items-center justify-center rounded text-sm border focus:outline-none focus:ring-2 focus:ring-yellow-200 ${isFavorited(ep.trackId) ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-300 text-yellow-600 bg-transparent'} hover:bg-yellow-50`}
+                  className={`w-9 h-9 flex items-center justify-center rounded text-sm border focus:outline-none focus:ring-2 focus:ring-yellow-200 ${isFavorited(ep.episodeId) ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-300 text-yellow-600 bg-transparent'} hover:bg-yellow-50`}
                   onClick={() => toggleFavorite(ep)}
-                  title={isFavorited(ep.trackId) ? 'Unfavorite' : 'Favorite'}
-                  aria-pressed={isFavorited(ep.trackId)}
+                  title={isFavorited(ep.episodeId) ? 'Unfavorite' : 'Favorite'}
+                  aria-pressed={isFavorited(ep.episodeId)}
                 >
-                  {isFavorited(ep.trackId) ? (
+                  {isFavorited(ep.episodeId) ? (
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
                     </svg>
@@ -315,8 +329,8 @@ export default function EpisodesList({ podcastId }) {
                 <button
                   className="w-9 h-9 flex items-center justify-center rounded text-sm border border-green-600 text-green-600 bg-transparent hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-200"
                   onClick={() => toggleWatched(ep)}
-                  title={isDownloaded(ep.trackId) ? 'Unmark as listened' : 'Mark as listened'}
-                  aria-label={isDownloaded(ep.trackId) ? 'Unmark as listened' : 'Mark as listened'}
+                  title={isWatched(ep.episodeId) ? 'Unmark as listened' : 'Mark as listened'}
+                  aria-label={isWatched(ep.episodeId) ? 'Unmark as listened' : 'Mark as listened'}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                     <path d="M2.25 6.75C2.25 5.231 3.481 4 5 4h14c1.519 0 2.75 1.231 2.75 2.75v8.5C21.75 16.769 20.519 18 19 18H5c-1.519 0-2.75-1.231-2.75-2.75v-8.5zM12 11.293l6.146-4.47a.75.75 0 10-.892-1.22L12 9.56 6.746 5.603a.75.75 0 10-.892 1.22L12 11.293z" />

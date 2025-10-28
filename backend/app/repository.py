@@ -191,38 +191,34 @@ class Repository:
                 return True
             return False
 
-    # Watched flag management for PodcastItem
-    def mark_item_watched_by_track(self, track_id: int) -> int:
-        """Set watched=1 for all PodcastItem rows matching the given track_id.
+    # Single-item watched helpers (by DB primary key id)
+    def mark_item_watched_by_id(self, item_id: int) -> int:
+        """Set watched=1 for the PodcastItem with the given primary key id.
 
-        Returns the number of rows updated.
+        Returns 1 if updated, 0 if not found.
         """
         with Session(self.engine) as s:
-            stmt = select(PodcastItem).where(PodcastItem.track_id == track_id)
-            items = s.exec(stmt).all()
-            if not items:
+            it = s.get(PodcastItem, item_id)
+            if not it:
                 return 0
-            for it in items:
-                it.watched = 1
-                s.add(it)
+            it.watched = 1
+            s.add(it)
             s.commit()
-            return len(items)
+            return 1
 
-    def unmark_item_watched_by_track(self, track_id: int) -> int:
-        """Set watched=0 for all PodcastItem rows matching the given track_id.
+    def unmark_item_watched_by_id(self, item_id: int) -> int:
+        """Set watched=0 for the PodcastItem with the given primary key id.
 
-        Returns the number of rows updated.
+        Returns 1 if updated, 0 if not found.
         """
         with Session(self.engine) as s:
-            stmt = select(PodcastItem).where(PodcastItem.track_id == track_id)
-            items = s.exec(stmt).all()
-            if not items:
+            it = s.get(PodcastItem, item_id)
+            if not it:
                 return 0
-            for it in items:
-                it.watched = 0
-                s.add(it)
+            it.watched = 0
+            s.add(it)
             s.commit()
-            return len(items)
+            return 1
 
     def list_watched_track_ids(self, podcast_id: Optional[int] = None) -> List[int]:
         """Return a list of distinct track_id values for PodcastItem rows where watched=1.

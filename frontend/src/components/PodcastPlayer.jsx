@@ -39,7 +39,6 @@ export default function PodcastPlayer({ podcastId }) {
           const releaseDate = it.releaseDate || it.publishDate || (it.publish_date ? new Date(Number(it.publish_date) * 1000).toISOString() : null)
           return {
             episodeId: it.id,
-            trackId: it.track_id,
             trackName: it.title,
             artistName: it.author || '',
             description: it.desc || '',
@@ -101,7 +100,7 @@ export default function PodcastPlayer({ podcastId }) {
       artist: selected.artistName,
       duration: selected.trackTimeMillis ? Math.round(selected.trackTimeMillis / 1000) : undefined,
     }
-    play(selected.trackId, url, meta)
+    play(selected.episodeId, url, meta)
     setShowFullDescription(false)
   }, [selected, play])
 
@@ -140,14 +139,14 @@ export default function PodcastPlayer({ podcastId }) {
                 <div className="mt-3">
                   <div className="flex items-center gap-3">
                     <button
-                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === selected.trackId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}
+                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === selected.episodeId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}
                       onClick={() => {
                         // toggle play/pause via global player
-                        play(selected.trackId, getAudioUrl(selected), { title: selected.trackName })
+                        play(selected.episodeId, getAudioUrl(selected), { title: selected.trackName })
                       }}
-                      aria-label={playingId === selected.trackId ? `Pause ${selected.trackName}` : `Play ${selected.trackName}`}
+                      aria-label={playingId === selected.episodeId ? `Pause ${selected.trackName}` : `Play ${selected.trackName}`}
                     >
-                      {playingId === selected.trackId ? (
+                      {playingId === selected.episodeId ? (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                           <rect x="6" y="5" width="4" height="14" />
                           <rect x="14" y="5" width="4" height="14" />
@@ -186,7 +185,7 @@ export default function PodcastPlayer({ podcastId }) {
             {episodes.map((ep) => {
               const audioUrl = getAudioUrl(ep)
               return (
-                <li key={ep.trackId} className="flex items-start gap-3 p-2 border rounded">
+                <li key={ep.episodeId} className="flex items-start gap-3 p-2 border rounded">
                   <div className="flex-1">
                     <div className="font-medium">{ep.trackName}</div>
                     <div className="text-sm text-gray-600">{formatDatePT(ep.releaseDate)}</div>
@@ -199,7 +198,7 @@ export default function PodcastPlayer({ podcastId }) {
                         // ensure clicking the list play button starts playback immediately
                         const url = getAudioUrl(ep)
                         if (url) {
-                          play(ep.trackId, url, { title: ep.trackName, artist: ep.artistName, duration: ep.trackTimeMillis ? Math.round(ep.trackTimeMillis / 1000) : undefined })
+                          play(ep.episodeId, url, { title: ep.trackName, artist: ep.artistName, duration: ep.trackTimeMillis ? Math.round(ep.trackTimeMillis / 1000) : undefined })
                         }
                         setSelected(ep)
                       }}

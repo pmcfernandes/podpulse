@@ -30,7 +30,6 @@ export default function Favorites() {
               // normalize PodcastItem -> expected episode shape used by this component
               items.push({
                 episodeId: it.id || null,
-                trackId: it.track_id || it.trackId || null,
                 trackName: it.title || it.trackName || '',
                 artistName: it.author || it.artistName || '',
                 artworkUrl100: it.image_url || it.artworkUrl100 || null,
@@ -62,7 +61,7 @@ export default function Favorites() {
     if (!id) return
     // remember previous list to revert if needed
     const previous = episodes
-    setEpisodes((prev) => prev.filter((e) => e.trackId !== id))
+  setEpisodes((prev) => prev.filter((e) => e.episodeId !== id))
     setPendingIds((s) => (s.includes(id) ? s : [...s, id]))
 
     apiFetch(`/episodes/${id}/favorite`, { method: 'DELETE' })
@@ -126,13 +125,13 @@ export default function Favorites() {
     const url = getAudioUrl(ep)
     if (!url) return
     const meta = {
-      id: ep.trackId,
+      id: ep.episodeId,
       title: ep.trackName,
       artist: ep.artistName,
       url: ep.episodeUrl,
       duration: ep.trackTimeMillis ? Math.round(ep.trackTimeMillis / 1000) : undefined,
     }
-    play(ep.trackId, url, meta)
+    play(ep.episodeId, url, meta)
   }
 
   if (!episodes || episodes.length === 0) return <div className="max-w-4xl mx-auto p-4">No favorites yet.</div>
@@ -147,7 +146,7 @@ export default function Favorites() {
           const audioUrl = getAudioUrl(ep)
           const artwork = getArtwork(ep)
           return (
-            <li key={ep.trackId} className="border rounded p-3">
+            <li key={ep.episodeId} className="border rounded p-3">
               <div className="flex items-start gap-4">
                 {artwork ? (
                   <img src={artwork} alt={ep.trackName || 'episode artwork'} className="w-16 h-16 object-cover rounded" />
@@ -166,11 +165,11 @@ export default function Favorites() {
                   <div>
                     <button
                       disabled={!audioUrl}
-                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === ep.trackId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} focus:outline-none focus:ring-2 focus:ring-blue-200`}
+                      className={`h-9 w-9 rounded flex items-center justify-center ${playingId === ep.episodeId ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} focus:outline-none focus:ring-2 focus:ring-blue-200`}
                       onClick={() => playEpisode(ep)}
-                      aria-label={playingId === ep.trackId ? `Pause ${ep.trackName}` : `Play ${ep.trackName}`}
+                      aria-label={playingId === ep.episodeId ? `Pause ${ep.trackName}` : `Play ${ep.trackName}`}
                     >
-                      {playingId === ep.trackId ? (
+                      {playingId === ep.episodeId ? (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                           <rect x="6" y="5" width="4" height="14" />
                           <rect x="14" y="5" width="4" height="14" />
@@ -195,13 +194,13 @@ export default function Favorites() {
                   Download
                 </button>
                 <button
-                  className={`w-9 h-9 flex items-center justify-center rounded text-sm border ${pendingIds.includes(ep.trackId) ? 'opacity-50 cursor-not-allowed' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}
-                  onClick={() => unfavorite(ep.trackId)}
-                  disabled={pendingIds.includes(ep.trackId)}
+                  className={`w-9 h-9 flex items-center justify-center rounded text-sm border ${pendingIds.includes(ep.episodeId) ? 'opacity-50 cursor-not-allowed' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}
+                  onClick={() => unfavorite(ep.episodeId)}
+                  disabled={pendingIds.includes(ep.episodeId)}
                   title="Unfavorite"
                   aria-label="Unfavorite"
                 >
-                  {pendingIds.includes(ep.trackId) ? (
+                  {pendingIds.includes(ep.episodeId) ? (
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 text-gray-600">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" fill="none" />
                     </svg>
