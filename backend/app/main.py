@@ -256,32 +256,6 @@ async def itunes_search(q: str = Query(..., min_length=1), limit: int = Query(25
     except Exception as exc:  # pragma: no cover - network error
         raise HTTPException(status_code=502, detail=str(exc))
 
-
-
-@api.get("/itunes/lookup")
-async def itunes_lookup(id: str = Query(..., min_length=1), entity: Optional[str] = None, limit: Optional[int] = None):
-    """Proxy to iTunes lookup endpoint. Accepts comma-separated ids.
-
-    Example: /api/itunes/lookup?id=123,456
-    """
-    params = { 'id': id }
-    if entity:
-        params['entity'] = entity
-    if limit:
-        params['limit'] = limit
-
-    url = "https://itunes.apple.com/lookup"
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=str(exc))
-    except Exception as exc:  # pragma: no cover - network error
-        raise HTTPException(status_code=502, detail=str(exc))
-
-
 @api.get("/episodes/favorites")
 def list_favorite_episodes():
     """Return all favorite episodes (stored track ids and metadata)."""

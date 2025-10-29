@@ -2,6 +2,12 @@
 
 This repository contains a small podcast manager: a React + Vite frontend and a FastAPI backend that stores podcasts and episodes in SQLite. It includes a global audio player, saved podcasts, favorites, watched state, and server-side helpers for downloading media.
 
+## Screenshots
+
+![PodPulse screenshot](screenshot.png)
+
+![PodPulse screenshot](screenshot1.png)
+
 ## Features
 
 - Search iTunes (proxied via the backend) and save podcasts to the server
@@ -43,19 +49,28 @@ The frontend uses `src/lib/api.js` to pick the backend base URL in development.
 
 ## Important API endpoints
 
-- `GET /api/podcasts` — list saved podcasts (includes `trackCount`)
-- `POST /api/podcasts` — add a podcast (RSS/lookup + items saved)
-- `GET /api/podcasts/{podcast_id}` — podcast details + episodes
-- `PATCH /api/podcasts/{podcast_id}/suspend` — suspend background downloading for the podcast (sets `suspended=1`)
-- `PATCH /api/podcasts/{podcast_id}/continue` — resume background downloading (sets `suspended=0`)
-- `GET /api/itunes/search?q=...` — proxied iTunes search
-- `GET /api/episodes/favorites` — list favorite entries; includes `items` (PodcastItem rows)
-- `POST /api/episodes/{item_id}/favorite` — add a favorite (pass PodcastItem primary key id; server stores the external `track_id`)
-- `DELETE /api/episodes/{item_id}/favorite` — remove a favorite (by PodcastItem id)
-- `GET /api/episodes/watched?podcastId={podcast_id}` — returns `{ watched: [<external_track_id>, ...] }`; optional `podcastId` filters to a single podcast
-- `POST /api/episodes/{item_id}/watched` — mark a PodcastItem (by DB primary key `item_id`) as watched/listened
-- `DELETE /api/episodes/{item_id}/watched` — unmark watched for a given PodcastItem id
-- `GET /api/episodes/{item_id}/download` — download/serve a previously-downloaded media file for the PodcastItem (reads from `downloads/`)
+All API routes are mounted under the `/api` prefix.
+
+- `GET /api/podcasts` — list saved podcasts (includes `trackCount`).
+- `POST /api/podcasts` — create/save a podcast. Body: { itunes_id, title, rss_url, ... }.
+- `GET /api/podcasts/{podcast_id}` — get podcast details and its episodes (`items`).
+- `PATCH /api/podcasts/{podcast_id}/suspend` — mark podcast suspended (suspended=1).
+- `PATCH /api/podcasts/{podcast_id}/continue` — clear suspended flag (suspended=0).
+- `DELETE /api/podcasts/{podcast_id}` — delete a podcast and all its items and favorites.
+- `GET /api/podcasts/{podcast_id}/episodes` — list episodes (PodcastItem rows) for the specified podcast.
+
+- `GET /api/itunes/search?q=...&limit=...` — proxy to iTunes Search API (returns simplified results used by the frontend).
+
+- `GET /api/episodes` — list episodes across podcasts. Query params: `podcastId` (optional), `order` (`asc`|`desc`, default `desc`), `limit` (default 100).
+- `GET /api/episodes/favorites` — list favorite entries; each favorite includes any matching `PodcastItem` rows under an `items` array.
+- `POST /api/episodes/{item_id}/favorite` — mark the PodcastItem (by DB `item_id`) as favorite (server stores the external `track_id`).
+- `DELETE /api/episodes/{item_id}/favorite` — remove favorite (by PodcastItem id).
+
+- `GET /api/episodes/watched?podcastId={podcast_id}` — returns `{ "watched": [<external_track_id>, ...] }`. Optional `podcastId` filters to a single podcast.
+- `POST /api/episodes/{item_id}/watched` — mark a PodcastItem (by DB `item_id`) as watched/listened.
+- `DELETE /api/episodes/{item_id}/watched` — unmark watched for the given PodcastItem id.
+
+- `GET /api/episodes/{item_id}/download` — serve a previously-downloaded media file for the PodcastItem (reads from the package `downloads/` directory).
 
 ## Developer notes
 
