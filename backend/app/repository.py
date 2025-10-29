@@ -107,6 +107,28 @@ class Repository:
             stmt = select(PodcastItem).where(PodcastItem.podcast_id == podcast_id)
             return s.exec(stmt).all()
 
+    def list_items(self, podcast_id: Optional[int] = None, order: str = 'desc', limit: Optional[int] = None) -> List[PodcastItem]:
+        """Return PodcastItem rows optionally filtered by podcast_id and ordered by publish_date.
+
+        order may be 'asc' or 'desc' (case-insensitive). Default is 'desc' (latest first).
+        limit, when provided, restricts the number of returned rows (e.g. top N).
+        """
+        with Session(self.engine) as s:
+            stmt = select(PodcastItem)
+            if podcast_id is not None:
+                stmt = stmt.where(PodcastItem.podcast_id == podcast_id)
+            if str(order).lower() == 'asc':
+                stmt = stmt.order_by(PodcastItem.publish_date.asc())
+            else:
+                stmt = stmt.order_by(PodcastItem.publish_date.desc())
+            if limit is not None:
+                try:
+                    stmt = stmt.limit(int(limit))
+                except Exception:
+                    # ignore invalid limit and return full set
+                    pass
+            return s.exec(stmt).all()
+
     def count_items_for_podcast(self, podcast_id: int) -> int:
         """Return the number of items for a given podcast_id."""
         with Session(self.engine) as s:

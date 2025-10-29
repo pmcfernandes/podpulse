@@ -3,6 +3,7 @@ import PodcastSearch from './components/PodcastSearch'
 import PodcastDetails from './components/PodcastDetails'
 import PodcastPlayer from './components/PodcastPlayer'
 import Favorites from './components/Favorites'
+import AllEpisodes from './components/AllEpisodes'
 import './index.css'
 import apiFetch from './lib/api'
 import { AudioPlayerProvider } from './components/AudioPlayer'
@@ -106,6 +107,7 @@ function App() {
             </a>
           </h1>
           <div className="flex items-center gap-3">
+            <button className="px-3 py-1 border rounded text-sm" onClick={() => (window.location.hash = '#/episodes')}>Latest 100</button>
             <button className="px-3 py-1 border rounded text-sm" onClick={() => (window.location.hash = '#/favorites')}>Favorites</button>
             <button className="px-3 py-1 border rounded text-sm" onClick={downloadOPML}>Download OPML</button>
             <button className="px-3 py-1 border rounded text-sm" onClick={downloadCurrentRSS}>Download RSS</button>
@@ -117,6 +119,8 @@ function App() {
         <AudioPlayerProvider>
           {hash === '#/favorites' ? (
             <Favorites />
+          ) : hash === '#/episodes' ? (
+            <AllEpisodes />
           ) : playerPodcastId ? (
             <PodcastPlayer podcastId={playerPodcastId} />
           ) : podcastId ? (

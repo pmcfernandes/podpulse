@@ -350,6 +350,18 @@ def list_watched_episodes(podcastId: Optional[int] = Query(None, alias='podcastI
     return { 'watched': ids }
 
 
+@api.get("/episodes")
+def list_episodes(podcastId: Optional[int] = Query(None, alias='podcastId'), order: Optional[str] = Query('desc'), limit: Optional[int] = Query(100)):
+    """Return all episodes ordered by publish_date.
+
+    Query params:
+    - podcastId: optional podcast id to filter episodes
+    - order: 'asc' or 'desc' (default 'desc')
+    """
+    items = repo.list_items(podcastId, order=order, limit=limit)
+    return [it.dict() if hasattr(it, 'dict') else it.__dict__ for it in items]
+
+
 @api.post("/episodes/{item_id}/watched")
 def mark_episode_watched(item_id: int):
     """Mark a single PodcastItem (by DB id) as watched.
