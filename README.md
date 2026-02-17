@@ -106,7 +106,7 @@ Run the test suite with pytest:
 
 ```bash
 cd backend
-PYTHONPATH=/path/to/backend pytest tests/ -v
+PYTHONPATH=. pytest tests/ -v
 ```
 
 **Note**: The existing tests require the API to be mounted at `/api` as configured in production mode.
